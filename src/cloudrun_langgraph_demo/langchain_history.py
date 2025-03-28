@@ -2,31 +2,25 @@
 
 import sqlite3
 import tempfile
-import pathlib
-from os import environ
 from random import getrandbits
-from typing import cast
-from google.cloud.exceptions import NotFound
 
 import streamlit as st
+from google.cloud import storage
+from google.cloud.exceptions import NotFound
 from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
 from langchain_community.utilities.sql_database import SQLDatabase
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.messages.base import BaseMessage
-from langchain_core.runnables.config import (
-    RunnableConfig,
-)
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
 from langchain_google_vertexai import ChatVertexAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.prebuilt import create_react_agent
-from langgraph_chatbot_demo import _streamlit_helpers
-from sqlalchemy import Engine, create_engine
-
 from opentelemetry import trace
 from opentelemetry.trace.span import format_trace_id
+from sqlalchemy import Engine, create_engine
 
-from google.cloud import storage
+from cloudrun_langgraph_demo import _streamlit_helpers
+
 
 _ = """
 Ideas for things to add:
@@ -72,9 +66,7 @@ with st.sidebar.container():
 @st.cache_resource
 def get_storage_bucket() -> storage.Bucket:
     storage_client = storage.Client()
-    bucket_name = (
-        f"{_streamlit_helpers.get_project_id()}-langgraph-chatbot-storage"
-    )
+    bucket_name = f"{_streamlit_helpers.get_project_id()}-langgraph-chatbot-storage"
     try:
         return storage_client.get_bucket(bucket_name)
     except NotFound:
@@ -135,12 +127,8 @@ toolkit = SQLDatabaseToolkit(db=db, llm=model)
 
 tools = [search, *toolkit.get_tools()]
 
-app = create_react_agent(
-    model, tools, checkpointer=checkpointer, prompt=system_prompt
-)
-config: RunnableConfig = {
-    "configurable": {"thread_id": st.query_params.thread_id}
-}
+app = create_react_agent(model, tools, checkpointer=checkpointer, prompt=system_prompt)
+config: RunnableConfig = {"configurable": {"thread_id": st.query_params.thread_id}}
 
 if checkpoint := checkpointer.get(config):
     messages: list[BaseMessage] = checkpoint["channel_values"]["messages"]
